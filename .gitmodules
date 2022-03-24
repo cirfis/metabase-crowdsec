@@ -1,0 +1,6 @@
+[submodule "metabase"]
+	path = metabase
+	url = https://github.com/metabase/metabase.git
+[submodule "crowdsec-repo"]
+	path = crowdsec-repo
+	url = https://github.com/crowdsecurity/example-docker-compose.git
