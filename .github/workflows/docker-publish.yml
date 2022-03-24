@@ -34,6 +34,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
+        # Checkout Submodules
+        with:
+          submodules: recursive
 
       # Install the cosign tool except on PR
       # https://github.com/sigstore/cosign-installer
