@@ -33,86 +33,87 @@ jobs:
       # with sigstore/fulcio when running outside of PRs.
       id-token: write
 
-  steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
-      with:
-        submodules: recursive
-    # Extract metadata (tags, labels) for Docker
-    # https://github.com/docker/metadata-action
-    - name: Extract Docker metadata
-      id: meta
-      uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
-      with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
 
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v1
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+      # Extract metadata (tags, labels) for Docker
+      # https://github.com/docker/metadata-action
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
-    - name: Login to DockerHub
-      uses: docker/login-action@v1
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-    # JUST Build
-    - name: Build and export to Docker
-      uses: docker/build-push-action@v2
-      with:
-        context: .
-        load: true
-        tags: ${{ env.TEST_TAG }}
-    # Anchore Security Scan
-    - name: Run the Anchore scan action itself with GitHub Advanced Security code scanning integration enabled
-      uses: anchore/scan-action@b08527d5ae7f7dc76f9621edb6e49eaf47933ccd
-      with:
-        image: ${{ env.TEST_TAG }}
-        acs-report-enable: true
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Upload Anchore Scan Report
-      uses: github/codeql-action/upload-sarif@v1
-      with:
-        sarif_file: results.sarif
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      # JUST Build
+      - name: Build and export to Docker
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          load: true
+          tags: ${{ env.TEST_TAG }}
+      # Anchore Security Scan
+      - name: Run the Anchore scan action itself with GitHub Advanced Security code scanning integration enabled
+        uses: anchore/scan-action@b08527d5ae7f7dc76f9621edb6e49eaf47933ccd
+        with:
+          image: ${{ env.TEST_TAG }}
+          acs-report-enable: true
 
-    # Trivy Security Scan
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@2a2157eb22c08c9a1fac99263430307b8d1bc7a2
-      with:
-          image-ref: ${{ env.TEST_TAG }}
-          format: 'template'
-          template: '@/contrib/sarif.tpl'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
+      - name: Upload Anchore Scan Report
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: results.sarif
 
-    - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v1
-      with:
-        sarif_file: 'trivy-results.sarif'
+      # Trivy Security Scan
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@2a2157eb22c08c9a1fac99263430307b8d1bc7a2
+        with:
+            image-ref: ${{ env.TEST_TAG }}
+            format: 'template'
+            template: '@/contrib/sarif.tpl'
+            output: 'trivy-results.sarif'
+            severity: 'CRITICAL,HIGH'
 
-    # PUSH Image
-    - name: Build and push Docker image
-      id: build-and-push
-      uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
-      with:
-        context: .
-        push: ${{ github.event_name != 'pull_request' }}
-#        tags: ${{ steps.meta.outputs.tags }}
-        tags: ${{ env.FULL_TAG }}
-        labels: ${{ steps.meta.outputs.labels }}
-        platforms: linux/amd64,linux/arm64
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          sarif_file: 'trivy-results.sarif'
 
-    # Sign the resulting Docker image digest except on PRs.
-    # This will only write to the public Rekor transparency log when the Docker
-    # repository is public to avoid leaking data.  If you would like to publish
-    # transparency data even for private images, pass --force to cosign below.
-    # https://github.com/sigstore/cosign
-    - name: Sign the published Docker image
-      if: ${{ github.event_name != 'pull_request' }}
-      env:
-        COSIGN_EXPERIMENTAL: "true"
-      # This step uses the identity token to provision an ephemeral certificate
-        # against the sigstore community Fulcio instance.
-        run: cosign sign ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-and-push.outputs.digest }}
+      # PUSH Image
+      - name: Build and push Docker image
+        id: build-and-push
+        uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+#          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ env.FULL_TAG }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+
+      # Sign the resulting Docker image digest except on PRs.
+      # This will only write to the public Rekor transparency log when the Docker
+      # repository is public to avoid leaking data.  If you would like to publish
+      # transparency data even for private images, pass --force to cosign below.
+      # https://github.com/sigstore/cosign
+      - name: Sign the published Docker image
+        if: ${{ github.event_name != 'pull_request' }}
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+          # This step uses the identity token to provision an ephemeral certificate
+          # against the sigstore community Fulcio instance.
+          run: cosign sign ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.build-and-push.outputs.digest }}
