@@ -80,7 +80,7 @@ jobs:
 
       # Trivy Security Scan
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@2a2157eb22c08c9a1fac99263430307b8d1bc7a2
+        uses: aquasecurity/trivy-action@2b22459068a4bb8c90967a22dc6aea5a617427b2
         with:
             image-ref: ${{ env.TEST_TAG }}
             format: 'template'
